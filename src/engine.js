@@ -27,6 +27,7 @@
   // 코드 하나 이조. offset은 원조 기준 반음(0~11) — 누적하지 않고 항상 원본 코드에서 계산한다.
   function transposeChord(chord, offset, spelling) {
     if (!chord || chord === '-') return chord;
+    if (chord.charAt(0) === '(' && chord.charAt(chord.length - 1) === ')') return '(' + transposeChord(chord.slice(1, -1), offset, spelling) + ')';   // (D): 괄호 선택 코드
     var m = RE.exec(chord); if (!m) throw new Error('코드 아님: ' + chord);
     var root = spell((noteIndex(m[1] + m[2]) + offset) % 12, spelling, m[2]);
     var rest = m[3]
@@ -41,25 +42,43 @@
   }
   function keyKorean(song, offset) { return keyLabel(song, offset).replace(/m$/, '') + (song.minor ? '단조' : '장조'); }
 
-  // ---- 절 쌓기: 같은 언어의 연속 verse가 보표 수·마디 수·세그먼트 수·코드 이름까지 전부 같을 때만 묶는다.
-  function structOf(sec) {
-    return JSON.stringify(sec.systems.map(function (sy) { return sy.cells.map(function (c) { return c.map(function (s) { return s.c; }); }); }));
+  // ---- 절 쌓기: 마디별 코드 이름 열이 정확히 같은 보표끼리만 겹친다. 기준 절 = 가장 긴 절.
+  // 짧은 절은 기준 절 안에서 구조가 일치하는 구간이 하나뿐일 때 그 자리에 놓는다(둘 이상이면 모호 → 따로 보여 정확성을 지킨다).
+  function sysSig(sy) { return JSON.stringify(sy.cells.map(function (c) { return c.map(function (s) { return s.c; }); })); }
+  function placeIn(base, v) {
+    var b = base.systems.map(sysSig), s = v.systems.map(sysSig), found = -1;
+    for (var k = 0; k + s.length <= b.length; k++) {
+      var ok = true;
+      for (var i = 0; i < s.length; i++) if (s[i] !== b[k + i]) { ok = false; break; }
+      if (ok) { if (found >= 0) return -1; found = k; }
+    }
+    return found;
   }
   function labelOf(run) {
     var n = run.map(function (s) { return s.num; }), seq = n.every(function (x, i) { return i === 0 || x === n[i - 1] + 1; });
-    return (seq ? n[0] + '~' + n[n.length - 1] : n.join('·')) + '절' + (run[0].lang === 'en' ? '(영문)' : '');
+    return (seq && n.length > 1 ? n[0] + '~' + n[n.length - 1] : n.join('·')) + '절' + (run[0].lang === 'en' ? '(영문)' : '');
   }
-  // → [{type:'stack', label, lang, verses:[section…]} | {type:'single', section}] 순서대로
+  // → [{type:'stack', label, lang, systems:[{chords:보표, rows:[{num, sys}]}]} | {type:'single', section}] 순서대로
   function stackGroups(song) {
     var out = [], i = 0, secs = song.sections;
     while (i < secs.length) {
       var s = secs[i];
-      if (s.kind === 'verse' && s.systems.length) {
-        var run = [s], sig = structOf(s), j = i + 1;
-        while (j < secs.length && secs[j].kind === 'verse' && secs[j].lang === s.lang && secs[j].systems.length && structOf(secs[j]) === sig) { run.push(secs[j]); j++; }
-        if (run.length >= 2) { out.push({ type: 'stack', label: labelOf(run), lang: s.lang, verses: run }); i = j; continue; }
-      }
-      out.push({ type: 'single', section: s }); i++;
+      if (!(s.kind === 'verse' && s.systems.length)) { out.push({ type: 'single', section: s }); i++; continue; }
+      var run = [], j = i;
+      while (j < secs.length && secs[j].kind === 'verse' && secs[j].lang === s.lang && secs[j].systems.length) run.push(secs[j++]);
+      var base = run[0];
+      run.forEach(function (v) { if (v.systems.length > base.systems.length) base = v; });
+      var members = [], rest = [];
+      run.forEach(function (v) { var k = v === base ? 0 : placeIn(base, v); (k >= 0 ? members : rest).push({ v: v, k: k }); });
+      if (members.length < 2) { run.forEach(function (v) { out.push({ type: 'single', section: v }); }); i = j; continue; }
+      var systems = base.systems.map(function (sy, idx) {
+        var rows = [];
+        members.forEach(function (m) { var r = idx - m.k; if (r >= 0 && r < m.v.systems.length) rows.push({ num: m.v.num, sys: m.v.systems[r] }); });
+        return { chords: sy, rows: rows };
+      });
+      out.push({ type: 'stack', label: labelOf(members.map(function (m) { return m.v; })), lang: s.lang, systems: systems });
+      rest.forEach(function (r) { out.push({ type: 'single', section: r.v }); });
+      i = j;
     }
     return out;
   }

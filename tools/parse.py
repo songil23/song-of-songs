@@ -87,31 +87,49 @@ def parse_song(path):
         s = lines[i].strip()
         if s and BOILER not in s and not s.startswith("<!--"): notes.append(s)
         i += 1
-    cur, infence, pend, text = None, False, None, []
-    def flush():
+    cur, infence, block, text = None, False, [], []
+    def flush_text():
         if cur is not None and text: cur["text"] = "\n".join(text); text.clear()
+    # 보표 블록 = 펜스 안에서 빈 줄로 나뉜 연속 줄. 1줄 코드, 2줄 가사, 3줄부터는 같은 코드 아래 동시에 부르는 추가 가사행(206 둘째 성부·211 에코).
+    def flush_block():
+        if not block: return
+        n = len(cur["systems"]) + 1
+        if len(block) < 2:
+            errs.append(f"{cur['label']} 보표 {n}: 코드 줄만 있고 가사 줄 없음"); block.clear(); return
+        ch, ly, extras = block[0], block[1], block[2:]
+        if cols(ch) != cols(ly): errs.append(f"{cur['label']} 보표 {n}: 마디선 열 불일치")
+        cells, end = split_segs(merge(ch, ly))
+        for cell in cells:
+            if not cell: errs.append(f"{cur['label']} 보표 {n}: 빈 마디")
+            for s in cell:
+                c = s["c"]
+                if c and c != "-":
+                    core = c[1:-1] if c.startswith("(") and c.endswith(")") else c   # (D)처럼 괄호로 감싼 선택 코드 허용
+                    if not CHORD.match(core): errs.append(f"코드 문법: {c}")
+        system = {"cells": cells, "end": end}
+        if extras:
+            system["extra"] = []
+            for ex in extras:
+                if cols(ex) != cols(ly): errs.append(f"{cur['label']} 보표 {n}: 추가 가사행 마디선 열 불일치")
+                parts = [x.strip() for x in ex.rstrip().rstrip("|").split("|")]
+                if len(parts) != len(cells): errs.append(f"{cur['label']} 보표 {n}: 추가 가사행 마디 수 {len(parts)} ≠ {len(cells)}")
+                system["extra"].append(parts)
+        cur["systems"].append(system); block.clear()
     for ln in lines[i:]:
         if ln.startswith("## "):
-            flush(); cur = {"label": ln[3:].strip(), "kind": None, "num": None, "lang": None, "systems": [], "text": None}
-            sections.append(cur); infence = False; pend = None; continue
+            flush_block(); flush_text()
+            cur = {"label": ln[3:].strip(), "kind": None, "num": None, "lang": None, "systems": [], "text": None}
+            sections.append(cur); infence = False; continue
         if cur is None: continue
         if ln.startswith("```"):
-            if infence and pend is not None: errs.append(f"{cur['label']}: 코드 줄만 있고 가사 줄 없음")
-            infence = not infence; pend = None; continue
+            flush_block(); infence = not infence; continue
         if infence:
-            if "|" not in ln: continue
-            if pend is None: pend = ln; continue
-            if cols(pend) != cols(ln): errs.append(f"{cur['label']} 보표 {len(cur['systems'])+1}: 마디선 열 불일치")
-            cells, end = split_segs(merge(pend, ln))
-            for cell in cells:
-                if not cell: errs.append(f"{cur['label']}: 빈 마디")
-                for s in cell:
-                    if s["c"] and s["c"] != "-" and not CHORD.match(s["c"]): errs.append(f"코드 문법: {s['c']}")
-            cur["systems"].append({"cells": cells, "end": end}); pend = None
+            if not ln.strip(): flush_block()
+            elif "|" in ln: block.append(ln)
         else:
             s = ln.strip()
             if s and not s.startswith("<!--"): text.append(s)
-    flush()
+    flush_block(); flush_text()
     for sec in sections:
         m = re.match(r"(\d+)절", sec["label"])
         sec["kind"] = "verse" if m else ("chorus" if sec["label"].startswith("후렴") else "other")

@@ -16,6 +16,7 @@ eq(E.transposeChord('A/C#m', 3, 'flat'), 'C/Em', '베이스 뒤 접미');
 eq(E.transposeChord('G#dim', 10, 'keep'), 'F#dim', 'keep ♯ 유지');
 eq(E.transposeChord('Bb', 2, 'keep'), 'C', 'keep 자연음');
 eq(E.transposeChord('-', 3, 'sharp'), '-', '대시');
+eq(E.transposeChord('(D)', 2, 'sharp'), '(E)', '괄호 선택 코드');
 eq(E.display('Bbm/Db'), 'B♭m/D♭', '글리프');
 eq(E.keyLabel({ key: 'D', minor: false }, 2), 'E', '조 이름');
 eq(E.keyLabel({ key: 'D', minor: false }, 1), 'E♭', '♭조');
@@ -30,17 +31,13 @@ for (const c of chords) for (let n = 0; n < 12; n++) {
   const back = E.transposeChord(E.transposeChord(c, n, 'sharp'), (12 - n) % 12, 'sharp');
   eq(back, E.transposeChord(c, 0, 'sharp'), '왕복 ' + c + ' +' + n);
 }
-// 쌓기 모델: 묶인 절들의 모든 세그먼트 코드가 첫 절과 같아야 한다(코드·가사 정확 일치 원칙)
+// 쌓기 모델: 겹친 모든 행의 세그먼트 코드가 기준 보표와 같아야 한다(코드·가사 정확 일치 원칙)
 let stackSongs = 0, mism = 0;
 for (const s of SONGS) {
   const g = E.stackGroups(s);
   if (g.some(b => b.type === 'stack')) stackSongs++;
-  for (const b of g) if (b.type === 'stack') {
-    const base = b.verses[0];
-    for (const v of b.verses) v.systems.forEach((sy, i) => sy.cells.forEach((cell, j) => cell.forEach((seg, k) => {
-      if (seg.c !== base.systems[i].cells[j][k].c) mism++;
-    })));
-  }
+  for (const b of g) if (b.type === 'stack') for (const x of b.systems) for (const r of x.rows)
+    x.chords.cells.forEach((cell, j) => cell.forEach((seg, k) => { if (!r.sys.cells[j] || !r.sys.cells[j][k] || r.sys.cells[j][k].c !== seg.c) mism++; }));
 }
 eq(mism, 0, '쌓기 코드 불일치');
 console.log(`곡 ${SONGS.length} · 코드 ${chords.size}종 · 쌓기 가능 ${stackSongs}곡 · 실패 ${fail}`);
