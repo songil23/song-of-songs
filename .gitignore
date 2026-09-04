@@ -1,25 +1,7 @@
-# Operating-system and editor files
-.DS_Store
-Thumbs.db
-Desktop.ini
-.idea/
-.vscode/
-*.swp
-*~
-
-# Python caches
-__pycache__/
-*.py[cod]
-
-# Local dependencies and secrets
-node_modules/
-.env
-.env.*
-!.env.example
-
-# Local diagnostics and browser artifacts
-*.log
-*.tmp
-coverage/
-screenshots/
-artifacts/
+# 공개 저장소에는 사이트에 필요한 것만 둔다: index.html, README.md, .gitignore (사용자 지시 2026-09-05)
+# 소스·도구·작업 기록은 로컬에만 있다(빌드는 로컬에서 ../악보를 읽어 index.html을 만든다)
+/*
+!/index.html
+!/README.md
+!/.gitignore
+!/.nojekyll
