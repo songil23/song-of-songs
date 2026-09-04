@@ -1,12 +1,12 @@
 # 코드 변환기 — Codex / Claude Code 인계
 
-마지막 갱신: 2026-09-04 17:17 KST
+마지막 갱신: 2026-09-04 17:20 KST
 
 이 문서는 웹 찬송집의 악보 데이터 미반영 진단과 후속 자동화 작업을 Claude Code가 바로 이어서 수행할 수 있도록 정리한 인계 문서다. 전체 설계 결정은 `../코드변환기 계획.md`, 웹 사용법은 `README.md`를 먼저 함께 읽는다.
 
 ## 세션 재개용 현재 상태 — 먼저 읽기
 
-작업 위치는 `web/`이며 공개 저장소와 Pages는 이미 연결되어 있다. 기능 기준 최신 커밋은 `24e0e79` (`Add favorites-only song filter`)이다. 직전 배포 `5841687`의 Pages 빌드와 공개 `index.html` blob 일치는 확인 완료했으며, 이번 필터 커밋도 아래 문서 커밋과 함께 `origin/main`에 push한다.
+작업 위치는 `web/`이며 공개 저장소와 Pages는 이미 연결되어 있다. 기능 기준 최신 커밋은 `24e0e79` (`Add favorites-only song filter`)이다. 필터 기능과 이 인계 문서는 모두 `origin/main`에 push했고 Pages 빌드도 성공했다. 공개 주소에서 받은 `index.html`의 Git blob은 현재 `HEAD:index.html` blob과 정확히 일치한다.
 
 ### 방금 완료한 사용자 요청
 
