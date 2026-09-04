@@ -14,7 +14,7 @@
   --s-half:2px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s6:24px;
   --hairline:1px;--focus-line:2px;--double-line:3px;--control:44px;--toolbar-item:44px;--toolbar-control:48px;
   --bar:56px;--screen-max:760px;--icon:20px;--glass-blur:18px;--sheet-wide:21.5rem;--sheet-rise:16px;--scrim-spread:100vmax;
-  --fs-ui:16px;--fs:16px;--weight-text:300;--r:10px;--press-scale:.96;--cell-gap:.2em;--bar-gap:.4em;--verse-gap:.6em;--chord-nudge:0;--chord-nudge-acc:.06em;--chord-edge-safety:1px;--chord-column-clearance:4px;
+  --fs-ui:16px;--fs:16px;--weight-text:300;--r:10px;--press-scale:.96;--cell-gap:.2em;--bar-gap:.4em;--verse-gap:.6em;--chord-nudge:.03em;--chord-nudge-acc:.06em;--chord-edge-safety:1px;--chord-column-clearance:4px;
   --lyric-anchor:.588em;--lyric-anchor-en:.42em;--chord-tracking:-.025em;--chord-bass-clearance:.12em;
   --flat-tight-start:-.12em;--flat-tight-end:-.07em;--sharp-tight-start:-.05em;--sharp-tight-end:-.07em;
   --motion-press:140ms;--motion-sheet:220ms;--motion-fade:160ms;
