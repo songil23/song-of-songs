@@ -2,7 +2,8 @@
 // 화면 2개(목록·곡)를 display로만 바꾸고 URL은 #025. 설정은 localStorage 'hymn.prefs' {theme,fontPx,speed}.
 (function () {
   'use strict';
-  var E = window.Engine, SONGS = window.SONGS || [];
+  var E = window.Engine, SONGS = window.SONGS || [], SONG_BY_ID = Object.create(null);
+  SONGS.forEach(function (song) { SONG_BY_ID[song.id] = song; });
   var $ = function (s) { return document.querySelector(s); };
   var MIN_SCROLL_SPEED = 1, MAX_SCROLL_SPEED = 15;
   var PREF = 'hymn.prefs', FAVORITES_KEY = 'song-of-songs.favorites.v1';
@@ -24,7 +25,7 @@
   function saveFavorites() {
     try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favorites).sort())); return true; } catch (e) { return false; }
   }
-  var st = { song: null, offset: 0, stacked: false, playing: false };
+  var st = { song: null, offset: 0, stacked: false, playing: false, favoritesOnly: false };
   var returnSongId = null, returnListScrollY = 0, routeFocus = null;
   function el(tag, cls, text) { var d = document.createElement(tag); if (cls) d.className = cls; if (text != null) d.textContent = text; return d; }
   function icon(id) {
@@ -64,17 +65,53 @@
   }
   function syncFavoriteButtons() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-favorite-id]'), function (button) {
-      var song = null;
-      SONGS.some(function (candidate) { if (candidate.id !== button.dataset.favoriteId) return false; song = candidate; return true; });
+      var song = SONG_BY_ID[button.dataset.favoriteId];
       if (song) setFavoriteButton(button, song);
     });
+  }
+  function setFavoriteFilterButton() {
+    $('#favorite-filter').setAttribute('aria-pressed', String(st.favoritesOnly));
+  }
+  function listFocusSnapshot() {
+    var active = document.activeElement, row = active && active.closest && active.closest('.song-row');
+    if ($('#list').hidden || !row) return null;
+    try { if (!active.matches(':focus-visible')) return null; } catch (e) { return null; }
+    return {
+      id: active.dataset.favoriteId || active.dataset.songId,
+      kind: active.classList.contains('favorite') ? 'favorite' : 'open',
+      index: Array.prototype.indexOf.call(document.querySelectorAll('#songs .song-row'), row),
+      scrollY: window.scrollY
+    };
+  }
+  function focusAndReveal(target) {
+    target.focus({ preventScroll: true });
+    var rect = target.getBoundingClientRect();
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight) target.scrollIntoView({ block: 'center' });
+  }
+  function restoreFilteredListFocus(snapshot) {
+    if (!snapshot) return;
+    var selector = snapshot.kind === 'favorite' ? '.favorite[data-favorite-id="' + snapshot.id + '"]' : '.song-open[data-song-id="' + snapshot.id + '"]';
+    var target = document.querySelector('#songs ' + selector), rows = document.querySelectorAll('#songs .song-row');
+    if (!target && rows.length) {
+      var row = rows[Math.min(snapshot.index, rows.length - 1)];
+      target = row.querySelector(snapshot.kind === 'favorite' ? '.favorite' : '.song-open');
+    }
+    if (!target) target = $('#favorite-filter');
+    window.scrollTo(0, snapshot.scrollY); focusAndReveal(target);
+  }
+  function refreshFavoriteResults() {
+    if (!st.favoritesOnly) return syncFavoriteButtons();
+    var snapshot = listFocusSnapshot();
+    renderList($('#q').value);
+    if (st.song) setFavoriteButton($('#favbtn'), st.song);
+    restoreFilteredListFocus(snapshot);
   }
   function toggleFavorite(song) {
     var previous = favorites;
     favorites = loadFavorites();
     if (favorites.has(song.id)) favorites.delete(song.id); else favorites.add(song.id);
     if (!saveFavorites()) favorites = previous;
-    syncFavoriteButtons();
+    refreshFavoriteResults();
   }
   function favoriteButton(song) {
     var button = el('button', 'favorite ic'); button.type = 'button'; button.appendChild(icon('#i-star'));
@@ -86,6 +123,7 @@
     q = (q || '').trim().toLowerCase();
     var ul = $('#songs'); ul.textContent = '';
     SONGS.forEach(function (s) {
+      if (st.favoritesOnly && !favorites.has(s.id)) return;
       if (q && s.id.indexOf(q) < 0 && String(+s.id).indexOf(q) < 0 && s.title.toLowerCase().indexOf(q) < 0) return;
       var li = el('li', 'song-row'), b = el('button', 'song-open'); b.type = 'button'; b.dataset.songId = s.id;
       b.appendChild(el('span', 'n', String(+s.id)));
@@ -114,7 +152,7 @@
       if (wasSong && returnSongId) window.scrollTo(0, returnListScrollY);
       if (restoreListFocus && returnSongId) {
         var opener = document.querySelector('.song-open[data-song-id="' + returnSongId + '"]');
-        if (opener) opener.focus({ preventScroll: true });
+        focusAndReveal(opener || $('#favorite-filter'));
       }
       routeFocus = null;
     }
@@ -364,12 +402,15 @@
   Array.prototype.forEach.call(document.querySelectorAll('.theme'), function (b) {
     b.onclick = function () { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); };
   });
+  $('#favorite-filter').onclick = function () {
+    st.favoritesOnly = !st.favoritesOnly; setFavoriteFilterButton(); renderList($('#q').value);
+  };
   $('#favbtn').onclick = function () { if (st.song) toggleFavorite(st.song); };
   window.addEventListener('storage', function (e) {
     if (e.key !== FAVORITES_KEY && e.key !== null) return;
     try { if (e.storageArea !== localStorage) return; } catch (error) {}
     favorites = loadFavorites();
-    syncFavoriteButtons();
+    refreshFavoriteResults();
   });
 
   // ---- 자동 스크롤. 390px의 001·026·112 실측 보표 간격은 53.66·56.94·50.03px(평균 53.54px).
@@ -484,5 +525,5 @@
 
   $('#q').oninput = function () { renderList(this.value); };
   window.addEventListener('hashchange', route);
-  applyTheme(); renderList(''); showSpeed(false); route();
+  applyTheme(); setFavoriteFilterButton(); renderList(''); showSpeed(false); route();
 })();

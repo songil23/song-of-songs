@@ -52,8 +52,11 @@ button:disabled{color:var(--ink-faint);background:transparent;cursor:default;tra
 input[type=search]{flex:1;min-width:0;font:inherit;min-height:var(--control);padding:0 var(--s4);border:var(--hairline) solid transparent;border-radius:var(--r);
   background:var(--accent-soft);color:var(--ink);-webkit-appearance:none;appearance:none}
 input[type=search]::placeholder{color:var(--ink-dim)}
-.top{display:flex;gap:var(--s2);margin-bottom:var(--s4)}
-.top input,.top .theme{background:var(--glass-control);border-color:var(--glass-edge);box-shadow:var(--shadow-control)}
+.top{display:grid;grid-template-columns:minmax(0,1fr) repeat(2,var(--control));align-items:center;gap:var(--s2);margin-bottom:var(--s4)}
+.top input,.top button{background:var(--glass-control);border-color:var(--glass-edge);box-shadow:var(--shadow-control)}
+.filter-favorites{color:var(--ink-dim)}
+.filter-favorites[aria-pressed="true"]{color:var(--ink)}
+.filter-favorites[aria-pressed="true"] svg{fill:currentColor}
 #songs{list-style:none;margin:0;padding:0}
 #songs .song-row{display:flex;align-items:center;border-bottom:var(--hairline) solid var(--line-soft);margin:0 calc(-1 * var(--s2))}
 #songs .song-open{display:flex;align-items:center;flex:1;min-width:0;width:auto;gap:var(--s3);text-align:left;background:none;
