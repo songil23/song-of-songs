@@ -158,6 +158,15 @@ python tools/build.py
 
 Git 저장소 루트는 현재 지시대로 `web/`로 잡는다. 이 방식은 PDF, 원본 악보, 작업용 도구 전체가 공개 저장소에 섞이지 않고 웹에 필요한 파일만 게시하기에 적합하다.
 
+현재 배포 설정:
+
+- 공개 저장소: `https://github.com/songil23/song-of-songs`
+- 공개 사이트: `https://songil23.github.io/song-of-songs/`
+- 기본 브랜치: `main`
+- Pages 소스: `main` 브랜치의 저장소 루트(`/`)
+- Pages 공개 상태: public
+- HTTPS 강제: enabled
+
 다만 `../악보`와 `../곡목록.md`는 이 저장소 바깥이다. 따라서 GitHub Actions가 원격 환경에서 Markdown을 다시 파싱하는 완전 자동 배포는 이 구조만으로는 불가능하다.
 
 - 현재 구조: 로컬에서 `parse → test → build`, 생성된 `data.js`와 `index.html`을 push.

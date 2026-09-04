@@ -2,6 +2,9 @@
 
 `index.html` 한 파일. 이조(반음 단위) · 절 쌓기/구분 보기 · 자동 스크롤 · 글자 크기 · 화이트/블랙.
 
+- 사이트: <https://songil23.github.io/song-of-songs/>
+- GitHub: <https://github.com/songil23/song-of-songs>
+
 ## 갱신
 ```
 python web/tools/parse.py      # ../악보/*.md(곡목록 '완료'만) → src/data.js
