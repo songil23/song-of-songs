@@ -388,7 +388,6 @@
     var interactive = e.target.closest && e.target.closest('button,input');
     var scrollKey = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0;
     if (st.playing && (scrollKey || (e.key === ' ' && !interactive))) stopScroll();
-    else if (e.key === ' ' && !interactive && st.song && !st.playing) { e.preventDefault(); startScroll(); }
   });
 
   $('#stackbtn').onclick = function () { stopScroll(); st.stacked = !st.stacked; renderSong(); };
@@ -463,31 +462,42 @@
     if (window.scrollY >= maxScroll - 0.001) return;
     var generation = ++playGeneration;
     st.playing = true; last = 0; scrollTarget = window.scrollY; $('#song').style.willChange = 'transform';
-    showSpeed(true);
+    $('#play').classList.add('on'); playIcon(true); showSpeed(true);
     raf = requestAnimationFrame(step);
     requestWake(generation);
   }
   function stopScroll() {
+    var restorePlayFocus = document.activeElement === $('#sminus') || document.activeElement === $('#splus');
     playGeneration++;
     if (st.playing) {
       st.playing = false; if (raf != null) cancelAnimationFrame(raf); raf = null;
-      showSpeed(false);
+      $('#play').classList.remove('on'); playIcon(false); showSpeed(false);
     }
     if ($('#song').style.transform) window.scrollTo(0, Math.round(scrollTarget));
     $('#song').style.transform = ''; $('#song').style.willChange = '';
     if (lock) { lock.release().catch(function () {}); lock = null; }
+    if (restorePlayFocus) $('#play').focus({ preventScroll: true });
   }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && st.playing) { last = 0; requestWake(playGeneration); }
   });
+  function playIcon(on) {
+    var play = $('#ic-play'), stop = $('#ic-stop');
+    if (on) { play.setAttribute('hidden', ''); stop.removeAttribute('hidden'); }
+    else { play.removeAttribute('hidden'); stop.setAttribute('hidden', ''); }
+    $('#play-l').textContent = on ? '정지' : '재생';
+    $('#play').setAttribute('aria-pressed', String(on));
+    $('#play').setAttribute('aria-label', on ? '자동 스크롤 정지' : '자동 스크롤 재생');
+  }
   function showSpeed(on) {
     ['#sminus', '#splus'].forEach(function (s) { $(s).hidden = !on; });
     ['#fminus', '#fplus'].forEach(function (s) { $(s).hidden = on; });
-    $('#splus').querySelector('.l').textContent = on ? '빠르게 ' + prefs.speed : '빠르게';   // 현재 속도는 라벨에
+    $('#play-l').textContent = on ? '정지 ' + prefs.speed : '재생';        // 44px 칸 안에서 현재 속도를 짧게 표시한다.
     $('#sminus').disabled = prefs.speed <= MIN_SCROLL_SPEED; $('#splus').disabled = prefs.speed >= MAX_SCROLL_SPEED;
     $('#sminus').setAttribute('aria-label', '속도 낮추기, 현재 ' + prefs.speed);
     $('#splus').setAttribute('aria-label', '속도 높이기, 현재 ' + prefs.speed);
   }
+  $('#play').onclick = function () { if (st.playing) stopScroll(); else startScroll(); };
   $('#sminus').onclick = function () { prefs.speed = Math.max(MIN_SCROLL_SPEED, prefs.speed - 1); save(); showSpeed(true); };
   $('#splus').onclick = function () { prefs.speed = Math.min(MAX_SCROLL_SPEED, prefs.speed + 1); save(); showSpeed(true); };
   // 두 손가락 확대는 본문 글자 비율로 바꾸고 손을 뗀 크기를 저장한다. 툴바는 main 밖이라 확대되지 않는다.
@@ -520,18 +530,6 @@
   $('#song').addEventListener('touchend', finishPinch, { passive: true });
   $('#song').addEventListener('touchcancel', finishPinch, { passive: true });
   window.addEventListener('wheel', stopScroll, { passive: true });
-  // 자동 스크롤은 버튼 없이(사용자 지시 2026-09-04): 본문을 두 번 탭·더블클릭·Space로 시작, 한 번 탭·휠·키 스크롤로 정지.
-  var tap = null, lastTap = null;
-  $('#song').addEventListener('touchstart', function (e) { tap = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
-  $('#song').addEventListener('touchend', function (e) {
-    if (!tap || e.touches.length || e.changedTouches.length !== 1) { tap = null; return; }
-    var c = e.changedTouches[0], now = Date.now(), moved = Math.abs(c.clientX - tap.x) > 12 || Math.abs(c.clientY - tap.y) > 12;
-    var quick = !moved && now - tap.t < 300; tap = null;
-    if (!quick) { lastTap = null; return; }
-    if (lastTap && now - lastTap.t < 350 && Math.abs(c.clientX - lastTap.x) < 40 && Math.abs(c.clientY - lastTap.y) < 40) { lastTap = null; if (!st.playing) startScroll(); }
-    else lastTap = { x: c.clientX, y: c.clientY, t: now };
-  }, { passive: true });
-  $('#body').addEventListener('dblclick', function () { if (!st.playing) startScroll(); });
 
   $('#q').oninput = function () { renderList(this.value); };
   window.addEventListener('hashchange', route);

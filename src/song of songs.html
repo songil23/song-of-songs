@@ -37,7 +37,7 @@
   <div id="body"></div>
   <div id="keys" class="panel" role="group" aria-label="조 선택" hidden></div>
 </main>
-<!-- 하단 툴바: 아이콘 + 한글 라벨 6칸(자동 스크롤은 본문 두 번 탭·더블클릭·Space, 버튼 없음)(390px 폭에 맞춤). 자동 스크롤 중에는 작게/크게 자리에 느리게/빠르게가 들어온다 -->
+<!-- 하단 툴바: 아이콘 + 한글 라벨 7칸(390px 폭에 맞춤). 자동 스크롤 중에는 작게/크게 자리에 느리게/빠르게가 들어온다 -->
 <nav id="bar" aria-label="곡 도구" hidden>
   <button id="back" aria-label="목록으로"><svg aria-hidden="true" focusable="false"><use href="#i-back"/></svg><span class="l">목록</span></button>
   <button id="keybtn" aria-label="조 선택" aria-controls="keys" aria-expanded="false"><b id="keyname" class="t"></b><span class="l">조</span></button>
@@ -46,6 +46,7 @@
   <button id="fplus" aria-label="글자 크게"><b class="t">A+</b><span class="l">크게</span></button>
   <button id="sminus" aria-label="느리게" hidden><b class="t">−</b><span class="l">느리게</span></button>
   <button id="splus" aria-label="빠르게" hidden><b class="t">+</b><span class="l">빠르게</span></button>
+  <button id="play" aria-label="자동 스크롤 재생" aria-pressed="false"><svg id="ic-play" aria-hidden="true" focusable="false"><use href="#i-play"/></svg><svg id="ic-stop" aria-hidden="true" focusable="false" hidden><use href="#i-stop"/></svg><span class="l" id="play-l">재생</span></button>
   <button class="theme" aria-label="어두운 테마로 전환" aria-pressed="false"><svg aria-hidden="true" focusable="false"><use href="#i-theme"/></svg><span class="l">테마</span></button>
 </nav>
 <script src="engine.js"></script>

@@ -182,7 +182,7 @@ button.ic{display:grid;place-items:center;padding:0} /* inline SVG의 baseline �
   <div id="body"></div>
   <div id="keys" class="panel" role="group" aria-label="조 선택" hidden></div>
 </main>
-<!-- 하단 툴바: 아이콘 + 한글 라벨 6칸(자동 스크롤은 본문 두 번 탭·더블클릭·Space, 버튼 없음)(390px 폭에 맞춤). 자동 스크롤 중에는 작게/크게 자리에 느리게/빠르게가 들어온다 -->
+<!-- 하단 툴바: 아이콘 + 한글 라벨 7칸(390px 폭에 맞춤). 자동 스크롤 중에는 작게/크게 자리에 느리게/빠르게가 들어온다 -->
 <nav id="bar" aria-label="곡 도구" hidden>
   <button id="back" aria-label="목록으로"><svg aria-hidden="true" focusable="false"><use href="#i-back"/></svg><span class="l">목록</span></button>
   <button id="keybtn" aria-label="조 선택" aria-controls="keys" aria-expanded="false"><b id="keyname" class="t"></b><span class="l">조</span></button>
@@ -191,6 +191,7 @@ button.ic{display:grid;place-items:center;padding:0} /* inline SVG의 baseline �
   <button id="fplus" aria-label="글자 크게"><b class="t">A+</b><span class="l">크게</span></button>
   <button id="sminus" aria-label="느리게" hidden><b class="t">−</b><span class="l">느리게</span></button>
   <button id="splus" aria-label="빠르게" hidden><b class="t">+</b><span class="l">빠르게</span></button>
+  <button id="play" aria-label="자동 스크롤 재생" aria-pressed="false"><svg id="ic-play" aria-hidden="true" focusable="false"><use href="#i-play"/></svg><svg id="ic-stop" aria-hidden="true" focusable="false" hidden><use href="#i-stop"/></svg><span class="l" id="play-l">재생</span></button>
   <button class="theme" aria-label="어두운 테마로 전환" aria-pressed="false"><svg aria-hidden="true" focusable="false"><use href="#i-theme"/></svg><span class="l">테마</span></button>
 </nav>
 <script>
@@ -709,7 +710,6 @@ window.SONGS=[{"id":"001","page":1,"title":"가끔 하늘 맑아도","sub":"Some
     var interactive = e.target.closest && e.target.closest('button,input');
     var scrollKey = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0;
     if (st.playing && (scrollKey || (e.key === ' ' && !interactive))) stopScroll();
-    else if (e.key === ' ' && !interactive && st.song && !st.playing) { e.preventDefault(); startScroll(); }
   });
 
   $('#stackbtn').onclick = function () { stopScroll(); st.stacked = !st.stacked; renderSong(); };
@@ -784,31 +784,42 @@ window.SONGS=[{"id":"001","page":1,"title":"가끔 하늘 맑아도","sub":"Some
     if (window.scrollY >= maxScroll - 0.001) return;
     var generation = ++playGeneration;
     st.playing = true; last = 0; scrollTarget = window.scrollY; $('#song').style.willChange = 'transform';
-    showSpeed(true);
+    $('#play').classList.add('on'); playIcon(true); showSpeed(true);
     raf = requestAnimationFrame(step);
     requestWake(generation);
   }
   function stopScroll() {
+    var restorePlayFocus = document.activeElement === $('#sminus') || document.activeElement === $('#splus');
     playGeneration++;
     if (st.playing) {
       st.playing = false; if (raf != null) cancelAnimationFrame(raf); raf = null;
-      showSpeed(false);
+      $('#play').classList.remove('on'); playIcon(false); showSpeed(false);
     }
     if ($('#song').style.transform) window.scrollTo(0, Math.round(scrollTarget));
     $('#song').style.transform = ''; $('#song').style.willChange = '';
     if (lock) { lock.release().catch(function () {}); lock = null; }
+    if (restorePlayFocus) $('#play').focus({ preventScroll: true });
   }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && st.playing) { last = 0; requestWake(playGeneration); }
   });
+  function playIcon(on) {
+    var play = $('#ic-play'), stop = $('#ic-stop');
+    if (on) { play.setAttribute('hidden', ''); stop.removeAttribute('hidden'); }
+    else { play.removeAttribute('hidden'); stop.setAttribute('hidden', ''); }
+    $('#play-l').textContent = on ? '정지' : '재생';
+    $('#play').setAttribute('aria-pressed', String(on));
+    $('#play').setAttribute('aria-label', on ? '자동 스크롤 정지' : '자동 스크롤 재생');
+  }
   function showSpeed(on) {
     ['#sminus', '#splus'].forEach(function (s) { $(s).hidden = !on; });
     ['#fminus', '#fplus'].forEach(function (s) { $(s).hidden = on; });
-    $('#splus').querySelector('.l').textContent = on ? '빠르게 ' + prefs.speed : '빠르게';   // 현재 속도는 라벨에
+    $('#play-l').textContent = on ? '정지 ' + prefs.speed : '재생';        // 44px 칸 안에서 현재 속도를 짧게 표시한다.
     $('#sminus').disabled = prefs.speed <= MIN_SCROLL_SPEED; $('#splus').disabled = prefs.speed >= MAX_SCROLL_SPEED;
     $('#sminus').setAttribute('aria-label', '속도 낮추기, 현재 ' + prefs.speed);
     $('#splus').setAttribute('aria-label', '속도 높이기, 현재 ' + prefs.speed);
   }
+  $('#play').onclick = function () { if (st.playing) stopScroll(); else startScroll(); };
   $('#sminus').onclick = function () { prefs.speed = Math.max(MIN_SCROLL_SPEED, prefs.speed - 1); save(); showSpeed(true); };
   $('#splus').onclick = function () { prefs.speed = Math.min(MAX_SCROLL_SPEED, prefs.speed + 1); save(); showSpeed(true); };
   // 두 손가락 확대는 본문 글자 비율로 바꾸고 손을 뗀 크기를 저장한다. 툴바는 main 밖이라 확대되지 않는다.
@@ -841,18 +852,6 @@ window.SONGS=[{"id":"001","page":1,"title":"가끔 하늘 맑아도","sub":"Some
   $('#song').addEventListener('touchend', finishPinch, { passive: true });
   $('#song').addEventListener('touchcancel', finishPinch, { passive: true });
   window.addEventListener('wheel', stopScroll, { passive: true });
-  // 자동 스크롤은 버튼 없이(사용자 지시 2026-09-04): 본문을 두 번 탭·더블클릭·Space로 시작, 한 번 탭·휠·키 스크롤로 정지.
-  var tap = null, lastTap = null;
-  $('#song').addEventListener('touchstart', function (e) { tap = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
-  $('#song').addEventListener('touchend', function (e) {
-    if (!tap || e.touches.length || e.changedTouches.length !== 1) { tap = null; return; }
-    var c = e.changedTouches[0], now = Date.now(), moved = Math.abs(c.clientX - tap.x) > 12 || Math.abs(c.clientY - tap.y) > 12;
-    var quick = !moved && now - tap.t < 300; tap = null;
-    if (!quick) { lastTap = null; return; }
-    if (lastTap && now - lastTap.t < 350 && Math.abs(c.clientX - lastTap.x) < 40 && Math.abs(c.clientY - lastTap.y) < 40) { lastTap = null; if (!st.playing) startScroll(); }
-    else lastTap = { x: c.clientX, y: c.clientY, t: now };
-  }, { passive: true });
-  $('#body').addEventListener('dblclick', function () { if (!st.playing) startScroll(); });
 
   $('#q').oninput = function () { renderList(this.value); };
   window.addEventListener('hashchange', route);
