@@ -1,0 +1,25 @@
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Local dependencies and secrets
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Local diagnostics and browser artifacts
+*.log
+*.tmp
+coverage/
+screenshots/
+artifacts/
