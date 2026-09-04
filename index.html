@@ -709,7 +709,7 @@ window.SONGS=[{"id":"001","page":1,"title":"가끔 하늘 맑아도","sub":"Some
     if (e.key === 'Escape' && !$('#keys').hidden) { e.preventDefault(); closeKeys(true); return; }
     var interactive = e.target.closest && e.target.closest('button,input');
     var scrollKey = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0;
-    if (st.playing && (scrollKey || (e.key === ' ' && !interactive))) stopScroll();
+    if (st.playing && (scrollKey || (e.key === ' ' && !interactive))) { if (e.key === ' ') e.preventDefault(); stopScroll(); }   // Space는 정지만(기본 한 화면 이동 막음)
   });
 
   $('#stackbtn').onclick = function () { stopScroll(); st.stacked = !st.stacked; renderSong(); };
