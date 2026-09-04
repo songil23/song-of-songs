@@ -1,19 +1,38 @@
 // 화면 로직. 엔진(engine.js)이 준 모델을 DOM으로 그린다. 데이터 계약: 코드변환기 계획.md §2
-// 화면 2개(목록·곡)를 display로만 바꾸고 URL은 #025. 기록은 localStorage 'hymn.prefs' {theme,fontPx,speed}.
+// 화면 2개(목록·곡)를 display로만 바꾸고 URL은 #025. 설정은 localStorage 'hymn.prefs' {theme,fontPx,speed}.
 (function () {
   'use strict';
   var E = window.Engine, SONGS = window.SONGS || [];
   var $ = function (s) { return document.querySelector(s); };
-  var PREF = 'hymn.prefs', prefs = { theme: 'light', fontPx: 16, speed: 3 };
+  var MIN_SCROLL_SPEED = 1, MAX_SCROLL_SPEED = 15;
+  var PREF = 'hymn.prefs', FAVORITES_KEY = 'song-of-songs.favorites.v1';
+  var prefs = { theme: 'light', fontPx: 16, speed: 3 }, favorites = loadFavorites();
   try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) {}
   if (prefs.theme !== 'light' && prefs.theme !== 'dark') prefs.theme = 'light';
   if (typeof prefs.fontPx !== 'number' || !isFinite(prefs.fontPx)) prefs.fontPx = 16;
   prefs.fontPx = Math.min(24, Math.max(12, prefs.fontPx));
   if (typeof prefs.speed !== 'number' || !isFinite(prefs.speed)) prefs.speed = 3;
-  prefs.speed = Math.min(10, Math.max(1, Math.round(prefs.speed)));
+  prefs.speed = Math.min(MAX_SCROLL_SPEED, Math.max(MIN_SCROLL_SPEED, Math.round(prefs.speed)));
   function save() { try { localStorage.setItem(PREF, JSON.stringify(prefs)); } catch (e) {} }
+  function loadFavorites() {
+    var saved = [], result = new Set();
+    try { saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'); } catch (e) {}
+    if (!Array.isArray(saved)) return result;
+    saved.forEach(function (id) { if (typeof id === 'string' && /^\d{3}$/.test(id)) result.add(id); });
+    return result;
+  }
+  function saveFavorites() {
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favorites).sort())); return true; } catch (e) { return false; }
+  }
   var st = { song: null, offset: 0, stacked: false, playing: false };
+  var returnSongId = null, returnListScrollY = 0, routeFocus = null;
   function el(tag, cls, text) { var d = document.createElement(tag); if (cls) d.className = cls; if (text != null) d.textContent = text; return d; }
+  function icon(id) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false'); use.setAttribute('href', id); svg.appendChild(use);
+    return svg;
+  }
   // 시스템 글꼴의 ♭ 왼쪽 여백이 커서 B ♭처럼 보이는 것을 막는다. 데이터·엔진 문자열은 그대로 두고 표시 글리프만 감싼다.
   function musicText(node, text) {
     node.textContent = '';
@@ -36,17 +55,47 @@
   }
 
   // ---- 목록
+  function setFavoriteButton(button, song) {
+    var on = favorites.has(song.id);
+    button.dataset.favoriteId = song.id;
+    button.classList.toggle('is-favorite', on);
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', (on ? '즐겨찾기에서 제거: ' : '즐겨찾기에 추가: ') + String(+song.id) + '번 ' + song.title);
+  }
+  function syncFavoriteButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-favorite-id]'), function (button) {
+      var song = null;
+      SONGS.some(function (candidate) { if (candidate.id !== button.dataset.favoriteId) return false; song = candidate; return true; });
+      if (song) setFavoriteButton(button, song);
+    });
+  }
+  function toggleFavorite(song) {
+    var previous = favorites;
+    favorites = loadFavorites();
+    if (favorites.has(song.id)) favorites.delete(song.id); else favorites.add(song.id);
+    if (!saveFavorites()) favorites = previous;
+    syncFavoriteButtons();
+  }
+  function favoriteButton(song) {
+    var button = el('button', 'favorite ic'); button.type = 'button'; button.appendChild(icon('#i-star'));
+    setFavoriteButton(button, song);
+    button.onclick = function () { toggleFavorite(song); };
+    return button;
+  }
   function renderList(q) {
     q = (q || '').trim().toLowerCase();
     var ul = $('#songs'); ul.textContent = '';
     SONGS.forEach(function (s) {
       if (q && s.id.indexOf(q) < 0 && String(+s.id).indexOf(q) < 0 && s.title.toLowerCase().indexOf(q) < 0) return;
-      var li = el('li'), b = el('button');
+      var li = el('li', 'song-row'), b = el('button', 'song-open'); b.type = 'button'; b.dataset.songId = s.id;
       b.appendChild(el('span', 'n', String(+s.id)));
       b.appendChild(el('span', 't', s.title));
       b.appendChild(musicText(el('span', 'k'), E.keyLabel(s, 0) + ' · ' + s.time));
-      b.onclick = function () { location.hash = s.id; };
-      li.appendChild(b); ul.appendChild(li);
+      b.onclick = function (event) {
+        returnSongId = s.id; returnListScrollY = window.scrollY;
+        routeFocus = event.detail === 0 ? 'detail' : null; location.hash = s.id;
+      };
+      li.appendChild(b); li.appendChild(favoriteButton(s)); ul.appendChild(li);
     });
   }
 
@@ -54,16 +103,31 @@
   function route() {
     var id = location.hash.slice(1), s = null;
     SONGS.forEach(function (x) { if (x.id === id) s = x; });
+    var wasSong = !!st.song, restoreListFocus = routeFocus === 'list', active = document.activeElement;
+    if (wasSong && !restoreListFocus && active && ($('#song').contains(active) || $('#bar').contains(active))) {
+      try { restoreListFocus = active.matches(':focus-visible'); } catch (e) {}
+    }
     stopScroll(); closeKeys(false);
     if (s) openSong(s);
-    else { st.song = null; $('#song').hidden = true; $('#bar').hidden = true; $('#list').hidden = false; }
+    else {
+      st.song = null; $('#song').hidden = true; $('#bar').hidden = true; $('#list').hidden = false;
+      if (wasSong && returnSongId) window.scrollTo(0, returnListScrollY);
+      if (restoreListFocus && returnSongId) {
+        var opener = document.querySelector('.song-open[data-song-id="' + returnSongId + '"]');
+        if (opener) opener.focus({ preventScroll: true });
+      }
+      routeFocus = null;
+    }
   }
   function openSong(s) {
     st.song = s; st.offset = 0; st.stacked = false;      // 곡별 이조 기억은 v2(계획 §7)
     $('#list').hidden = true; $('#song').hidden = false; $('#bar').hidden = false;
     $('#title').textContent = s.title; $('#sub').textContent = s.sub || ''; $('#sub').hidden = !s.sub;
+    setFavoriteButton($('#favbtn'), s);
     $('#stackbtn').disabled = !E.stackable(s);          // 쌓을 수 없는 곡은 비활성(감추지 않는다)
     renderSong(); window.scrollTo(0, 0);
+    if (routeFocus === 'detail') $('#title').focus({ preventScroll: true });
+    routeFocus = null;
   }
 
   // ---- 곡 본문
@@ -276,11 +340,12 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !$('#keys').hidden) { e.preventDefault(); closeKeys(true); return; }
     var interactive = e.target.closest && e.target.closest('button,input');
-    if (st.playing && ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' '].indexOf(e.key) >= 0 && !interactive) stopScroll();
+    var scrollKey = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0;
+    if (st.playing && (scrollKey || (e.key === ' ' && !interactive))) stopScroll();
   });
 
   $('#stackbtn').onclick = function () { stopScroll(); st.stacked = !st.stacked; renderSong(); };
-  $('#back').onclick = function () { location.hash = ''; };
+  $('#back').onclick = function (event) { routeFocus = event.detail === 0 ? 'list' : null; location.hash = ''; };
   $('#fminus').onclick = function () { stepFont(-1); };
   $('#fplus').onclick = function () { stepFont(1); };
   function stepFont(direction) { var next = nextFontPref(direction); if (next != null) { stopScroll(); setFont(next, true, true); } }
@@ -299,50 +364,93 @@
   Array.prototype.forEach.call(document.querySelectorAll('.theme'), function (b) {
     b.onclick = function () { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); };
   });
+  $('#favbtn').onclick = function () { if (st.song) toggleFavorite(st.song); };
+  window.addEventListener('storage', function (e) {
+    if (e.key !== FAVORITES_KEY && e.key !== null) return;
+    try { if (e.storageArea !== localStorage) return; } catch (error) {}
+    favorites = loadFavorites();
+    syncFavoriteButtons();
+  });
 
   // ---- 자동 스크롤. 390px의 001·026·112 실측 보표 간격은 53.66·56.94·50.03px(평균 53.54px).
   // 느린 찬송 기준 보표당 약 12초가 되도록 px/s = 1.5×속도: 기본 3은 4.5px/s, 평균 11.90초/보표(2026-09-04 CDP 보정).
-  var SCROLL_PX_PER_SPEED = 1.5, raf = null, last = 0, acc = 0, lock = null, playGeneration = 0;
+  // 소수 절대 좌표를 누적하고, 정수 scrollY 사이의 나머지는 곡 화면 transform으로 보간해 저속에서도 실제 화면이 매 프레임 이어진다.
+  // 0.1초 상한은 백그라운드 복귀 급이동을 막는다. 1~15 = 1.5~22.5px/s.
+  var SCROLL_PX_PER_SPEED = 1.5, MAX_SCROLL_FRAME_SECONDS = 0.1;
+  var raf = null, last = 0, scrollTarget = 0, lock = null, playGeneration = 0;
+  function drawScrollPosition() {
+    var whole = Math.floor(scrollTarget), fraction = scrollTarget - whole;
+    window.scrollTo(0, whole);
+    $('#song').style.transform = fraction > 0.001 ? 'translate3d(0,' + (-fraction).toFixed(3) + 'px,0)' : '';
+  }
   function step(ts) {
     if (!st.playing) return;
-    if (last) { acc += (ts - last) / 1000 * prefs.speed * SCROLL_PX_PER_SPEED; var px = Math.floor(acc); if (px) { acc -= px; window.scrollBy(0, px); } }
+    if (last) {
+      var seconds = Math.min((ts - last) / 1000, MAX_SCROLL_FRAME_SECONDS);
+      var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      scrollTarget = Math.min(maxScroll, scrollTarget + seconds * prefs.speed * SCROLL_PX_PER_SPEED);
+      drawScrollPosition();
+    }
     last = ts;
-    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 1) return stopScroll();
+    if (scrollTarget >= document.documentElement.scrollHeight - window.innerHeight - 0.001) return stopScroll();
     raf = requestAnimationFrame(step);
+  }
+  function requestWake(generation) {
+    try {
+      if (!navigator.wakeLock || !st.playing || document.visibilityState !== 'visible') return;
+      navigator.wakeLock.request('screen').then(function (nextLock) {
+        nextLock.addEventListener('release', function () { if (lock === nextLock) lock = null; });
+        if (!st.playing || generation !== playGeneration || document.visibilityState !== 'visible') {
+          nextLock.release().catch(function () {}); return;
+        }
+        var oldLock = lock; lock = nextLock;
+        if (oldLock && oldLock !== nextLock && !oldLock.released) oldLock.release().catch(function () {});
+      }).catch(function () {});
+    } catch (e) {}
   }
   function startScroll() {
+    var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    if (window.scrollY >= maxScroll - 0.001) return;
     var generation = ++playGeneration;
-    st.playing = true; last = 0; acc = 0; $('#play').classList.add('on'); playIcon(true); showSpeed(true);
+    st.playing = true; last = 0; scrollTarget = window.scrollY; $('#song').style.willChange = 'transform';
+    $('#play').classList.add('on'); playIcon(true); showSpeed(true);
     raf = requestAnimationFrame(step);
-    try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) {
-      if (!st.playing || generation !== playGeneration) { l.release().catch(function () {}); return; }
-      lock = l;
-    }).catch(function () {}); } catch (e) {}
+    requestWake(generation);
   }
   function stopScroll() {
+    var restorePlayFocus = document.activeElement === $('#sminus') || document.activeElement === $('#splus');
     playGeneration++;
     if (st.playing) {
       st.playing = false; if (raf != null) cancelAnimationFrame(raf); raf = null;
       $('#play').classList.remove('on'); playIcon(false); showSpeed(false);
     }
+    if ($('#song').style.transform) window.scrollTo(0, Math.round(scrollTarget));
+    $('#song').style.transform = ''; $('#song').style.willChange = '';
     if (lock) { lock.release().catch(function () {}); lock = null; }
+    if (restorePlayFocus) $('#play').focus({ preventScroll: true });
   }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && st.playing) { last = 0; requestWake(playGeneration); }
+  });
   function playIcon(on) {
-    $('#ic-play').hidden = on; $('#ic-stop').hidden = !on; $('#play-l').textContent = on ? '정지' : '재생';
+    var play = $('#ic-play'), stop = $('#ic-stop');
+    if (on) { play.setAttribute('hidden', ''); stop.removeAttribute('hidden'); }
+    else { play.removeAttribute('hidden'); stop.setAttribute('hidden', ''); }
+    $('#play-l').textContent = on ? '정지' : '재생';
     $('#play').setAttribute('aria-pressed', String(on));
     $('#play').setAttribute('aria-label', on ? '자동 스크롤 정지' : '자동 스크롤 재생');
   }
   function showSpeed(on) {
     ['#sminus', '#splus'].forEach(function (s) { $(s).hidden = !on; });
     ['#fminus', '#fplus'].forEach(function (s) { $(s).hidden = on; });
-    $('#splus').querySelector('.l').textContent = '빠르게 ' + prefs.speed;   // 현재 속도는 빠르게 라벨 옆에
-    $('#sminus').disabled = prefs.speed <= 1; $('#splus').disabled = prefs.speed >= 10;
+    $('#play-l').textContent = on ? '정지 ' + prefs.speed : '재생';        // 44px 칸 안에서 현재 속도를 짧게 표시한다.
+    $('#sminus').disabled = prefs.speed <= MIN_SCROLL_SPEED; $('#splus').disabled = prefs.speed >= MAX_SCROLL_SPEED;
     $('#sminus').setAttribute('aria-label', '속도 낮추기, 현재 ' + prefs.speed);
     $('#splus').setAttribute('aria-label', '속도 높이기, 현재 ' + prefs.speed);
   }
   $('#play').onclick = function () { if (st.playing) stopScroll(); else startScroll(); };
-  $('#sminus').onclick = function () { prefs.speed = Math.max(1, prefs.speed - 1); save(); showSpeed(true); };
-  $('#splus').onclick = function () { prefs.speed = Math.min(10, prefs.speed + 1); save(); showSpeed(true); };
+  $('#sminus').onclick = function () { prefs.speed = Math.max(MIN_SCROLL_SPEED, prefs.speed - 1); save(); showSpeed(true); };
+  $('#splus').onclick = function () { prefs.speed = Math.min(MAX_SCROLL_SPEED, prefs.speed + 1); save(); showSpeed(true); };
   // 두 손가락 확대는 본문 글자 비율로 바꾸고 손을 뗀 크기를 저장한다. 툴바는 main 밖이라 확대되지 않는다.
   var pinch = null, pinchFrame = null, pendingFont = prefs.fontPx;
   function touchDistance(touches) {

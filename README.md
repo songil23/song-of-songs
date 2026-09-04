@@ -1,6 +1,6 @@
 # 2026 서초지역 대학청년 찬송집 — 웹 악보
 
-`index.html` 한 파일. 이조(반음 단위) · 절 쌓기/구분 보기 · 자동 스크롤 · 글자 크기 · 화이트/블랙.
+`index.html` 한 파일. 이조(반음 단위) · 절 쌓기/구분 보기 · 자동 스크롤(속도 1~15) · 즐겨찾기(브라우저 저장) · 글자 크기 · 화이트/블랙.
 
 - 사이트: <https://songil23.github.io/song-of-songs/>
 - GitHub: <https://github.com/songil23/song-of-songs>
