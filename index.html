@@ -45,7 +45,7 @@ body{margin:0;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100
 .screen{max-width:var(--screen-max);margin:0 auto;
   padding:calc(var(--s4) + env(safe-area-inset-top)) calc(var(--s4) + env(safe-area-inset-right))
     calc(var(--bar) + var(--s6) + env(safe-area-inset-bottom)) calc(var(--s4) + env(safe-area-inset-left))}
-#song{touch-action:pan-y}
+#song{touch-action:pan-y;padding-bottom:calc(var(--bar) + var(--s3) + env(safe-area-inset-bottom))}   /* 곡 화면은 연락처 문구가 바닥이라 하단 바까지 24→12px(사용자 지시 2026-09-06) */
 
 /* 누를 수 있는 것: 테두리 없이 옅은 잉크 워시, 누르면 살짝 작아진다 */
 button{font:inherit;color:var(--ink);background:var(--accent-soft);border:var(--hairline) solid transparent;border-radius:var(--r);
@@ -107,6 +107,9 @@ section h2{font-size:.8em;font-weight:var(--weight-text);color:var(--ink-dim);ma
 .sys td.vn{color:var(--ink-dim);font-size:.8em;padding:0 var(--verse-gap) 0 0;border:0;text-align:right;font-variant-numeric:tabular-nums}
 .sys td.vn:empty{padding:0}
 .txt{white-space:pre-line;margin:0}
+.contact{margin-top:var(--s6);padding-top:var(--s3);border-top:var(--hairline) solid var(--line-soft);color:var(--ink-faint);font-size:.625em;text-align:center}   /* 10px·가운데·밑줄 없이 따옴표만: 사용자 지시 2026-09-06("있을 듯 말 듯") */
+.contact a{color:var(--ink-dim);display:inline-block;padding-block:var(--s4);margin-block:calc(-1 * var(--s4));   /* 10px 글자(줄 15px) + 상하 16px = 47px 히트 영역, 보이는 높이는 그대로 */
+  text-decoration:none}
 
 /* 하단 툴바: 반투명 유리 + 헤어라인. 버튼 = 아이콘(22px) 위, 한글 라벨 아래(아이폰 탭바). 누르면 워시, 켜진 것은 잉크 채움 */
 #bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:var(--s1);align-items:stretch;justify-content:center;
@@ -180,6 +183,8 @@ button.ic{display:grid;place-items:center;padding:0} /* inline SVG의 baseline �
     <p id="sub"></p><p id="meta"></p>
   </header>
   <div id="body"></div>
+  <!-- 곡 하단 연락처: 흐린 잉크·작은 글자로 "있는 듯 말 듯". 링크만 밑줄(1px 반투명). 히트 영역은 패딩으로 44px 확보 -->
+  <footer class="contact">문의 사항은 <a href="https://open.kakao.com/o/sQcWBeMi" target="_blank" rel="noopener">"여기"</a>로 보내세요.</footer>
   <div id="keys" class="panel" role="group" aria-label="조 선택" hidden></div>
 </main>
 <!-- 하단 툴바: 아이콘 + 한글 라벨 7칸(390px 폭에 맞춤). 자동 스크롤 중에는 작게/크게 자리에 느리게/빠르게가 들어온다 -->
