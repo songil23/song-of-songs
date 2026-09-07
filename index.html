@@ -550,7 +550,7 @@ window.SONGS=[{"id":"001","page":1,"title":"가끔 하늘 맑아도","sub":"Some
     }
   }
   function openSong(s) {
-    st.song = s; st.offset = 0; st.stacked = E.stackable(s) && E.hasRepeat(s);   // 도돌이·볼타 곡은 원본처럼 겹쳐 보이게 쌓기로 연다(사용자 지시 2026-09-07). 곡별 이조 기억은 v2(계획 §7)
+    st.song = s; st.offset = 0; st.stacked = E.stackable(s);   // 쌓을 수 있는 곡은 전부 쌓기로 연다(사용자 지시 2026-09-07 저녁; 그 전엔 도돌이·볼타 곡만). 곡별 이조 기억은 v2(계획 §7)
     $('#list').hidden = true; $('#song').hidden = false; $('#bar').hidden = false;
     $('#title').textContent = s.title; $('#sub').textContent = s.sub || ''; $('#sub').hidden = !s.sub;
     setFavoriteButton($('#favbtn'), s);
